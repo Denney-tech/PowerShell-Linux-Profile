@@ -5,6 +5,7 @@ Adds aliases for bash compatiblity functions.
 
 ## Aliases
 nano - Invoke-Nano
+
 sudo - Invoke-Sudo
 
 ## Compatibility Functions
