@@ -79,3 +79,9 @@ Set-PSReadLineKeyHandler -Key "Ctrl+@" -Function "MenuComplete"
 Set-PSReadLineKeyHandler -Key "Ctrl+Spacebar" -Function "MenuComplete"
 Set-PSReadLineKeyHandler -Key "Tab" -Function "TabCompleteNext"
 Set-PSReadLineKeyHandler -Key "Shift+Tab" -Function "TabCompletePrevious"
+
+# Workaround for synchronizing pwsh and unix PWD environment variable. Only fixes Console commands, not scripts or other actions that may change PWD on the fly.
+Set-PSReadLineKeyHandler -Key Enter {
+  $env:PWD = $PWD
+  [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+}
