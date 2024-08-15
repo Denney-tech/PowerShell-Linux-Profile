@@ -8,6 +8,10 @@ nano - Invoke-Nano
 
 sudo - Invoke-Sudo
 
+ls   - Invoke-LS
+
+grep - Invoke-Grep
+
 # Compatibility Functions
 ## Nano
 For some reason, even with the Microsoft.PowerShell.UnixTabCompletion module, the pwsh 7.4 shell hangs whenever you try to tab complete paths for nano.  This doesn't occur with any other binary I've tried so far.  To fix this, a custom function `Invoke-Nano` and arguement completer for it are created. The IArgument class is used to prevent falling back to default Completion behavior, which was causing the shell to hang. As a result, only filepaths can be tab completed, and other arguments cannot be passed through to nano.
@@ -31,6 +35,15 @@ sudo chown -R root:domain\ users@domain.com /usr/local/
 # This does work
 sudo chown -R '"root:domain users@domain.com"' /usr/local/
 ```
+
+## LS
+This enables colored output for `ls` by default (`ls --color=auto`), while maintaining expected behavior.
+
+## Grep
+This enables colored output for `grep` by default(`grep --color=auto`), while maintaining expected behavior.
+
+## LS/GREP
+Neither of these seemed to respect environment variables set in PowerShell to enable color.
 
 # Note to self
 I should probably make a bash-pwsh compatibility module and place the related code there so that the module can be dynamically loaded into noprofile sessions.
