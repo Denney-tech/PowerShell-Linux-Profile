@@ -53,7 +53,6 @@ function Invoke-Sudo {
   } else {
     /usr/bin/sudo $env:SHELL -c "$args"
   }
-
 }
 
 function Invoke-Nano {
@@ -62,10 +61,25 @@ function Invoke-Nano {
     [ArgumentCompleter([Completer])]
     $Path
   )
+}
+
+function Invoke-LS {
+  process {
+    /usr/bin/ls --color=auto $args $_
+  }
+}
+
+function Invoke-Grep {
+  process {
+    echo $_ | /usr/bin/grep --color=auto $args
+  }
+}
 
 # alias bash commands to compatibility function
 Set-Alias -Name sudo -Value Invoke-Sudo -Description "Passes command to sudo"
 Set-Alias -Name nano -Value Invoke-Nano -Description "Passes command to nano"
+Set-Alias -name ls   -Value Invoke-LS   -Description "Enables ls autocolors"
+Set-Alias -name grep -Value Invoke-Grep -Description "Enables grep autocolors"
 
 
 # Set Curser movements
