@@ -1,35 +1,3 @@
-# file path tab completion fix for nano; prevents shell from hanging
-using namespace System.Management.Automation
-using namespace System.Management.Automation.Language
-using namespace System.Collections
-using namespace System.Collections.Generic
-
-class Completer : IArgumentCompleter {
-    hidden [List[CompletionResult]] $Results = [List[CompletionResult]]::new()
-
-    [IEnumerable[CompletionResult]] CompleteArgument(
-        [string] $CommandName,
-        [string] $ParameterName,
-        [string] $WordToComplete,
-        [CommandAst] $CommandAst,
-        [IDictionary] $FakeBoundParameters
-    ) {
-        $this.Results.Clear()
-        $dirs = $WordToComplete.split('/')
-        $WorkingDir = $(Get-ChildItem $dirs[0..$($dirs.count - 1)] -join '/').FullName
-        foreach ($item in Get-ChildItem $WorkingDir) {
-            if ($item.Name -like "*$wordToComplete*") {
-                $this.Results.Add([CompletionResult]::new(
-                    $item.FullName,
-                    $item.Name,
-                    [CompletionResultType]::ParameterValue,
-                    $item.Name))
-            }
-        }
-        return $this.Results
-    }
-}
-
 # stylization
 $PSStyle.Formatting.FormatAccent = $PSStyle.Foreground.Green
 $PSStyle.Formatting.TableHeader = $PSStyle.Foreground.Green
@@ -40,27 +8,29 @@ $PSStyle.Formatting.Verbose = $PSStyle.Foreground.Blue
 $PSStyle.Formatting.Debug = $PSStyle.Foreground.Magenta
 
 # environment
-$env:SHELL = "/bin/pwsh"
+$env:SHELL = [Environment]::ProcessPath # wherever this pwsh lives (/usr/bin/pwsh, /opt/microsoft/..., snap)
 $env:EDITOR = "nano"
 
 # default modules
-Import-Module Microsoft.PowerShell.UnixTabCompletion
+if (Get-Module -ListAvailable -Name Microsoft.PowerShell.UnixTabCompletion) {
+  Import-Module Microsoft.PowerShell.UnixTabCompletion
 
-# custom bash-pwsh compatiblity functions
-function Invoke-Sudo {
-  if ($args[0][0] -eq '-') {
-    /usr/bin/sudo $args
-  } else {
-    /usr/bin/sudo $env:SHELL -c "$args"
+  # UnixTabCompletion's bash bridge ends up *running* nano while computing completions,
+  # which grabs the terminal and looks like a hung shell. Complete nano's arguments with
+  # PowerShell's own filename completer instead (must be registered after the import).
+  Register-ArgumentCompleter -Native -CommandName nano -ScriptBlock {
+    param($wordToComplete)
+    [System.Management.Automation.CompletionCompleters]::CompleteFilename($wordToComplete)
   }
 }
 
-function Invoke-Nano {
-  [CmdletBinding()]
-  param(
-    [ArgumentCompleter([Completer])]
-    $Path
-  )
+# custom bash-pwsh compatiblity functions
+function Invoke-Sudo {
+  if ($args.Count -eq 0 -or "$($args[0])".StartsWith('-')) {
+    /usr/bin/sudo @args
+  } else {
+    /usr/bin/sudo $env:SHELL -c "$args"
+  }
 }
 
 function Invoke-LS {
@@ -70,16 +40,38 @@ function Invoke-LS {
 }
 
 function Invoke-Grep {
+  # Stream the whole pipeline into a single grep process, so counts (-c), context
+  # (-A/-B/-C) and the exit status cover all of the input instead of one line at a time,
+  # while records still reach grep as they arrive (e.g. Get-Content -Wait | grep ...).
+  # --line-buffered: grep block-buffers when its output feeds another pipeline stage.
+  begin {
+    $grepArgs = $args
+    $ended = $false
+    $pipeline = { /usr/bin/grep --color=auto --line-buffered @grepArgs }.GetSteppablePipeline($MyInvocation.CommandOrigin)
+    $pipeline.Begin($MyInvocation.ExpectingInput)
+  }
   process {
-    echo $_ | /usr/bin/grep --color=auto $args
+    if ($MyInvocation.ExpectingInput) { $pipeline.Process($_) }
+  }
+  end {
+    $pipeline.End()
+    $ended = $true
+  }
+  clean {
+    # end doesn't run when upstream throws or is stopped, which leaves grep waiting on an
+    # open stdin forever (bare /usr/bin/grep leaks the same way). Ending the inner pipeline
+    # closes grep's stdin so it exits; output in clean is discarded.
+    if ($pipeline) {
+      if (-not $ended) { try { $null = $pipeline.End() } catch { $null = $_ } }
+      $pipeline.Dispose()
+    }
   }
 }
 
 # alias bash commands to compatibility function
 Set-Alias -Name sudo -Value Invoke-Sudo -Description "Passes command to sudo"
-Set-Alias -Name nano -Value Invoke-Nano -Description "Passes command to nano"
-Set-Alias -name ls   -Value Invoke-LS   -Description "Enables ls autocolors"
-Set-Alias -name grep -Value Invoke-Grep -Description "Enables grep autocolors"
+Set-Alias -Name ls   -Value Invoke-LS   -Description "Enables ls autocolors"
+Set-Alias -Name grep -Value Invoke-Grep -Description "Enables grep autocolors"
 
 
 # Set Curser movements
