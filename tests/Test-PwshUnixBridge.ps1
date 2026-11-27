@@ -133,6 +133,7 @@ try {
     $profilePath = Join-Path $work 'profile.ps1'
     $historyFile = Join-Path $work 'history.txt'
     $memoryFile = Join-Path $work 'memory.txt'
+    $keysFile = Join-Path $work 'keys.txt'
     @"
 Set-PSReadLineOption -HistorySavePath '$historyFile'
 Import-Module '$manifest' -ArgumentList @{ Completion = `$false }
@@ -143,7 +144,8 @@ function prompt { 'PS> ' }
       "'root' | grep root" `
       'll /etc' `
       'echo password | grep pass' `
-      "[Microsoft.PowerShell.PSConsoleReadLine]::GetHistoryItems() | ForEach-Object CommandLine | Set-Content '$memoryFile'" |
+      "[Microsoft.PowerShell.PSConsoleReadLine]::GetHistoryItems() | ForEach-Object CommandLine | Set-Content '$memoryFile'" `
+      "Get-PSReadLineKeyHandler -Bound | ForEach-Object { `$_.Key + '=' + `$_.Function } | Set-Content '$keysFile'" |
       Out-String
     $esc = [char]27
     Assert-Equal 'Enter expands aliases; grep keeps its color at the terminal' 'True' $out.Contains("$esc[01;31m$esc[Kroot")
@@ -153,6 +155,10 @@ function prompt { 'PS> ' }
     Assert-Equal 'history keeps what was typed, not the expansion' "'root' | grep root|ll /etc" ((@($memory) | Select-Object -First 2) -join '|')
     Assert-Equal 'lines PSReadLine marks sensitive stay out of the history file' 'True|False' `
       ("$($memory -contains 'echo password | grep pass')|$($saved -contains 'echo password | grep pass')")
+    # Same functions PSReadLine's Windows edit mode binds (Ctrl+Space arrives as Ctrl+@).
+    $bound = Get-Content $keysFile -ErrorAction SilentlyContinue
+    Assert-Equal 'Windows-style key bindings' 'Ctrl+LeftArrow=BackwardWord Ctrl+RightArrow=NextWord Ctrl+@=MenuComplete Tab=TabCompleteNext Shift+Tab=TabCompletePrevious' `
+      ((@('Ctrl+LeftArrow', 'Ctrl+RightArrow', 'Ctrl+@', 'Tab', 'Shift+Tab') | ForEach-Object { $k = $_; @($bound) -like "$k=*" | Select-Object -First 1 }) -join ' ')
     if ($script:failures) {
       Write-Host '--- interactive session transcript (escape sequences stripped):'
       Write-Host ($out -replace "$esc\[[0-9;?]*[a-zA-Z]|$esc\][^\a]*\a|$esc[=>]", '' -replace "`r", '')

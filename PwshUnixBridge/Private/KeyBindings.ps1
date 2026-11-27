@@ -2,7 +2,7 @@
 # Tab opens a menu; these restore the Windows PowerShell habits.
 function Initialize-WindowsKeyBinding {
   Set-PSReadLineKeyHandler -Key 'Ctrl+LeftArrow' -Function BackwardWord
-  Set-PSReadLineKeyHandler -Key 'Ctrl+RightArrow' -Function ForwardWord
+  Set-PSReadLineKeyHandler -Key 'Ctrl+RightArrow' -Function NextWord
   # Terminals send Ctrl+Space as Ctrl+@.
   Set-PSReadLineKeyHandler -Key 'Ctrl+@' -Function MenuComplete
   Set-PSReadLineKeyHandler -Key 'Ctrl+Spacebar' -Function MenuComplete
