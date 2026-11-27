@@ -37,6 +37,18 @@ try {
 
   Assert-Equal 'grep -c counts across the whole pipeline' '2' ('a1', 'b', 'a2' | grep -c a)
   Assert-Equal 'grep -A keeps context across piped lines' 'a1 b' (('a1', 'b', 'c' | grep -A1 a1) -join ' ')
+  # Matches must arrive while the producer is still running, exactly as with the bare
+  # binary. (pwsh itself holds each record's newline back until the next record, so even
+  # /usr/bin/grep sees a1 only once a2 is written; a grep that only starts after upstream
+  # finishes would report every match at 4s instead.)
+  $arrivals = foreach ($cmd in 'grep', '/usr/bin/grep') {
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    (& { 'a1'; Start-Sleep -Seconds 2; 'a2'; Start-Sleep -Seconds 2; 'a3' } | & $cmd --line-buffered a |
+      ForEach-Object { "$_@$([int]$sw.Elapsed.TotalSeconds)s" }) -join ' '
+  }
+  Assert-Equal 'grep streams piped input like the bare binary' $arrivals[1] $arrivals[0]
+  Assert-Equal 'bare grep timing is as expected (test sanity)' 'a1@2s a2@4s a3@4s' $arrivals[1]
+  Assert-Equal 'grep exit status covers the whole pipeline' '1' $(('x', 'y' | grep -q zzz); $LASTEXITCODE)
   Assert-Equal 'grep still works on files' "$dir/needle.txt" (ls -d "$dir/needle.txt" | grep needle)
 
   $sudoError = $null

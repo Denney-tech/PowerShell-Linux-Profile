@@ -40,12 +40,19 @@ function Invoke-LS {
 }
 
 function Invoke-Grep {
-  # Pass the whole pipeline to a single grep, so counts (-c), context (-A/-B/-C) and the
-  # exit status cover all of the input instead of one line at a time.
-  if ($MyInvocation.ExpectingInput) {
-    $input | /usr/bin/grep --color=auto @args
-  } else {
-    /usr/bin/grep --color=auto @args
+  # Stream the whole pipeline into a single grep process, so counts (-c), context
+  # (-A/-B/-C) and the exit status cover all of the input instead of one line at a time,
+  # while records still reach grep as they arrive (e.g. Get-Content -Wait | grep ...).
+  begin {
+    $grepArgs = $args
+    $pipeline = { /usr/bin/grep --color=auto @grepArgs }.GetSteppablePipeline($MyInvocation.CommandOrigin)
+    $pipeline.Begin($MyInvocation.ExpectingInput)
+  }
+  process {
+    if ($MyInvocation.ExpectingInput) { $pipeline.Process($_) }
+  }
+  end {
+    $pipeline.End()
   }
 }
 

@@ -38,7 +38,7 @@ sudo chown -R '"root:domain users@domain.com"' /usr/local/
 This enables colored output for `ls` by default (`ls --color=auto`), while maintaining expected behavior.
 
 ## Grep
-This enables colored output for `grep` by default (`grep --color=auto`), while maintaining expected behavior. Piped input goes to a single `grep` process, so `-c`, `-A`/`-B`/`-C` and the exit status cover all of the input.
+This enables colored output for `grep` by default (`grep --color=auto`), while maintaining expected behavior. Piped input streams into a single `grep` process as it arrives (so `Get-Content -Wait log | grep ...` works), and `-c`, `-A`/`-B`/`-C` and the exit status cover all of the input.
 
 ## LS/GREP
 Neither of these seemed to respect environment variables set in PowerShell to enable color.
