@@ -90,10 +90,18 @@ try {
   Import-Module $manifest -Force
 
   # --- sudo -----------------------------------------------------------------------------------
-  $null = /usr/bin/sudo -n true 2>&1
-  if ($LASTEXITCODE -eq 0) {
+  $sudoBinary = Get-Command sudo -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  $canSudo = $false
+  if ($sudoBinary) {
+    $null = & $sudoBinary.Source -n true 2>&1
+    $canSudo = $LASTEXITCODE -eq 0
+  }
+  if ($canSudo) {
     Assert-Equal 'sudo native command' 'root' (sudo whoami)
     Assert-Equal 'sudo native args keep quoting' 'a b|c|' (sudo printf '%s|' 'a b' c)
+    Set-Alias -Name whoamialias -Value whoami
+    Assert-Equal 'sudo resolves a PowerShell alias for a native program' 'root' (sudo whoamialias)
+    Remove-Item Alias:whoamialias
     Assert-Equal 'sudo PowerShell expression runs as root' 'root' (sudo [Environment]::UserName)
     Assert-Equal 'sudo cmdlet keeps quoting' "[a  b] [c'd]" ((sudo Write-Output 'a  b' "c'd" | ForEach-Object { "[$_]" }) -join ' ')
     Assert-Equal 'sudo output pipes back' 'root' (sudo Get-Content -Path /etc/shadow -TotalCount 1 | ForEach-Object { ($_ -split ':')[0] })
@@ -102,7 +110,7 @@ try {
     $errorText = (sudo Get-Item /nonexistent-pwshunixbridge 2>&1 | Out-String)
     Assert-Equal 'root pwsh errors come back as text, not CLIXML' 'True' ($errorText -match 'Cannot find path' -and $errorText -notmatch 'CLIXML')
   } else {
-    Skip 'sudo' 'no passwordless sudo'
+    Skip 'sudo' 'sudo missing or not passwordless'
   }
 
   # --- completion -----------------------------------------------------------------------------

@@ -74,7 +74,7 @@ ln -s ~/src/PowerShell-Linux-Profile/PwshUnixBridge ~/.local/share/powershell/Mo
 
 Then add `Import-Module PwshUnixBridge` to your profile (`$PROFILE`, usually `~/.config/powershell/Microsoft.PowerShell_profile.ps1`), or use [.config/powershell/profile.ps1](.config/powershell/profile.ps1) as a starting point. A `git pull` updates it.
 
-To make pwsh your login shell, make sure its path is listed in `/etc/shells`, then run `chsh -s /usr/bin/pwsh`.
+To make pwsh your login shell, make sure its absolute path (`command -v pwsh`, e.g. `/usr/bin/pwsh`) is listed in `/etc/shells`, then pass that same path to `chsh -s "$(command -v pwsh)"`.
 
 ## Upgrading from the old profile
 

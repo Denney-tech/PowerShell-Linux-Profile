@@ -47,10 +47,14 @@ function Invoke-Sudo {
     $commandText = $args[0].ToString()
   } else {
     $target = Get-Command -Name "$($args[0])" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($target -and $target.CommandType -eq 'Alias') { $target = $target.ResolvedCommand }
+    $viaAlias = $target -and $target.CommandType -eq 'Alias'
+    if ($viaAlias) { $target = $target.ResolvedCommand }
     if ($target -and $target.CommandType -eq 'Application') {
-      # PowerShell's native argument passing already preserves quoting for executables.
-      & $sudo.Source @args
+      # PowerShell's native argument passing already preserves quoting for executables. A
+      # PowerShell alias (Set-Alias k kubectl) means nothing to sudo, so pass its target.
+      $native = @($args)
+      if ($viaAlias) { $native[0] = $target.Source }
+      & $sudo.Source @native
       return
     }
     $commandText = Get-SudoCommandText -Invocation $MyInvocation -Arguments $args

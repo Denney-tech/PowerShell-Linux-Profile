@@ -44,8 +44,14 @@ if ($script:Settings.Environment) {
   Initialize-UnixEnvironment
 }
 if ($script:Settings.Completion) {
-  $completionScript = Get-UnixCompletionScript
-  if ($completionScript) { . $completionScript }
+  # A broken completion setup must not abort the import halfway (after the environment hooks
+  # are installed but before OnRemove is registered to undo them).
+  try {
+    $completionScript = Get-UnixCompletionScript
+    if ($completionScript) { . $completionScript }
+  } catch {
+    Write-Warning "PwshUnixBridge: completion not loaded: $_"
+  }
 }
 if ($script:Interactive -and $script:Settings.KeyBindings) {
   Initialize-WindowsKeyBinding
