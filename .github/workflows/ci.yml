@@ -35,19 +35,30 @@ jobs:
           if ($results) { throw "PSScriptAnalyzer reported $($results.Count) issue(s)" }
 
   test:
-    name: Profile tests
+    name: Module tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install nano and Microsoft.PowerShell.UnixTabCompletion
-        shell: pwsh
+      - name: Install carapace (for the completion tests)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if (-not (Get-Command nano -ErrorAction SilentlyContinue)) {
-            sudo apt-get install -y nano
-          }
-          Install-Module Microsoft.PowerShell.UnixTabCompletion -Scope CurrentUser -Force -AcceptLicense
+          mkdir -p "$RUNNER_TEMP/carapace" && cd "$RUNNER_TEMP/carapace"
+          gh release download --repo carapace-sh/carapace-bin \
+            --pattern '*_linux_amd64.tar.gz' --pattern '*checksums.txt'
+          sha256sum --ignore-missing -c ./*checksums.txt
+          tar xzf ./*_linux_amd64.tar.gz carapace
+          echo "$RUNNER_TEMP/carapace" >> "$GITHUB_PATH"
 
       - name: Run tests
         shell: pwsh
-        run: ./tests/Test-Profile.ps1
+        run: ./tests/Test-PwshUnixBridge.ps1
+
+      - name: The shipped profile loads the module
+        shell: pwsh
+        run: |
+          $env:PSModulePath = "$PWD$([IO.Path]::PathSeparator)$env:PSModulePath"
+          . ./.config/powershell/profile.ps1
+          if (-not (Get-Module PwshUnixBridge)) { throw 'profile did not load PwshUnixBridge' }
+          "loaded PwshUnixBridge $((Get-Module PwshUnixBridge).Version)"
