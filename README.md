@@ -50,7 +50,7 @@ History stores what you typed (`ll /etc`), not the expansion. Lines that PSReadL
 | `sudo { Get-ChildItem /root \| Measure-Object }` | The script block, as root. |
 | `sudo -i`, `sudo -u bob id` | sudo unchanged. A leading option means you're talking to sudo itself. |
 
-Quoting survives: `sudo chown -R 'root:domain users@domain.com' /usr/local/` works as typed.
+Quoting survives: `sudo chown -R 'root:domain users@domain.com' /usr/local/` works as typed. Your own global aliases for programs (for example `Set-Alias k kubectl` in your profile) are resolved before sudo sees them. Aliases and functions defined only inside a script's own scope aren't visible to the module, and they don't exist in the root pwsh either.
 
 The root pwsh loads PwshUnixBridge too, so its aliases and functions are available inside elevated commands. Output comes back as text, not live objects. You can pipe it into `ForEach-Object` and similar commands, but its properties are gone.
 

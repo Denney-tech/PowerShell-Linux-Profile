@@ -99,7 +99,9 @@ try {
   if ($canSudo) {
     Assert-Equal 'sudo native command' 'root' (sudo whoami)
     Assert-Equal 'sudo native args keep quoting' 'a b|c|' (sudo printf '%s|' 'a b' c)
-    Set-Alias -Name whoamialias -Value whoami
+    # Global, like aliases from a profile: a module can't see the caller's script scope, and
+    # this file may run as a nested script (it does in CI).
+    Set-Alias -Name whoamialias -Value whoami -Scope Global
     Assert-Equal 'sudo resolves a PowerShell alias for a native program' 'root' (sudo whoamialias)
     Remove-Item Alias:whoamialias
     Assert-Equal 'sudo PowerShell expression runs as root' 'root' (sudo [Environment]::UserName)
