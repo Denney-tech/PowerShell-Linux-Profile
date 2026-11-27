@@ -44,7 +44,7 @@ try {
   $firstAt = $null
   & { foreach ($i in 1..5) { "a$i"; Start-Sleep -Milliseconds 800 } } | grep a |
     ForEach-Object { if ($null -eq $firstAt) { $firstAt = $sw.Elapsed.TotalSeconds } }
-  Assert-Equal 'grep streams piped input as it arrives' 'True' ($firstAt -lt 2.5)
+  Assert-Equal 'grep streams piped input as it arrives' 'True' ($null -ne $firstAt -and $firstAt -lt 2.5)
 
   # An upstream error must not leave the grep process behind.
   try { & { 'zq1'; throw 'upstream failed' } | grep zq | Out-Null } catch { $null = $_ }
