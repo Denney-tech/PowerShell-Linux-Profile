@@ -37,17 +37,20 @@ try {
 
   Assert-Equal 'grep -c counts across the whole pipeline' '2' ('a1', 'b', 'a2' | grep -c a)
   Assert-Equal 'grep -A keeps context across piped lines' 'a1 b' (('a1', 'b', 'c' | grep -A1 a1) -join ' ')
-  # Matches must arrive while the producer is still running, exactly as with the bare
-  # binary. (pwsh itself holds each record's newline back until the next record, so even
-  # /usr/bin/grep sees a1 only once a2 is written; a grep that only starts after upstream
-  # finishes would report every match at 4s instead.)
-  $arrivals = foreach ($cmd in 'grep', '/usr/bin/grep') {
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    (& { 'a1'; Start-Sleep -Seconds 2; 'a2'; Start-Sleep -Seconds 2; 'a3' } | & $cmd --line-buffered a |
-      ForEach-Object { "$_@$([int]$sw.Elapsed.TotalSeconds)s" }) -join ' '
-  }
-  Assert-Equal 'grep streams piped input like the bare binary' $arrivals[1] $arrivals[0]
-  Assert-Equal 'bare grep timing is as expected (test sanity)' 'a1@2s a2@4s a3@4s' $arrivals[1]
+  # The first match must arrive while the producer is still running (it runs for 4s; a
+  # grep that only starts after upstream finishes reports nothing before then). pwsh
+  # buffers what it writes to a native program's stdin, so the margin is wide on purpose.
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  $firstAt = $null
+  & { foreach ($i in 1..5) { "a$i"; Start-Sleep -Milliseconds 800 } } | grep a |
+    ForEach-Object { if ($null -eq $firstAt) { $firstAt = $sw.Elapsed.TotalSeconds } }
+  Assert-Equal 'grep streams piped input as it arrives' 'True' ($firstAt -lt 2.5)
+
+  # An upstream error must not leave the grep process behind.
+  try { & { 'zq1'; throw 'upstream failed' } | grep zq | Out-Null } catch { $null = $_ }
+  Start-Sleep -Milliseconds 500
+  $leftover = @(Get-Process grep -ErrorAction SilentlyContinue | Where-Object { $_.Parent.Id -eq $PID })
+  Assert-Equal 'grep is cleaned up when upstream throws' '0' $leftover.Count
   Assert-Equal 'grep exit status covers the whole pipeline' '1' $(('x', 'y' | grep -q zzz); $LASTEXITCODE)
   Assert-Equal 'grep still works on files' "$dir/needle.txt" (ls -d "$dir/needle.txt" | grep needle)
 

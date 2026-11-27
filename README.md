@@ -3,6 +3,8 @@ Customizes syntax highlighting.
 Imports Modules
 Adds aliases for bash compatiblity functions.
 
+Requires PowerShell 7.3 or later.
+
 # Aliases
 sudo - Invoke-Sudo
 

@@ -43,9 +43,11 @@ function Invoke-Grep {
   # Stream the whole pipeline into a single grep process, so counts (-c), context
   # (-A/-B/-C) and the exit status cover all of the input instead of one line at a time,
   # while records still reach grep as they arrive (e.g. Get-Content -Wait | grep ...).
+  # --line-buffered: grep block-buffers when its output feeds another pipeline stage.
   begin {
     $grepArgs = $args
-    $pipeline = { /usr/bin/grep --color=auto @grepArgs }.GetSteppablePipeline($MyInvocation.CommandOrigin)
+    $ended = $false
+    $pipeline = { /usr/bin/grep --color=auto --line-buffered @grepArgs }.GetSteppablePipeline($MyInvocation.CommandOrigin)
     $pipeline.Begin($MyInvocation.ExpectingInput)
   }
   process {
@@ -53,6 +55,16 @@ function Invoke-Grep {
   }
   end {
     $pipeline.End()
+    $ended = $true
+  }
+  clean {
+    # end doesn't run when upstream throws or is stopped, which leaves grep waiting on an
+    # open stdin forever (bare /usr/bin/grep leaks the same way). Ending the inner pipeline
+    # closes grep's stdin so it exits; output in clean is discarded.
+    if ($pipeline) {
+      if (-not $ended) { try { $null = $pipeline.End() } catch { $null = $_ } }
+      $pipeline.Dispose()
+    }
   }
 }
 
